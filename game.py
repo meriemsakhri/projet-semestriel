@@ -27,7 +27,7 @@ clock = pygame.time.Clock()
 def load_images():
     car_images = []
     try:
-        frog_img = pygame.image.load("frog.png").convert_alpha()
+        frog_img = pygame.image.load("frog3.png").convert_alpha()
         frog_img = pygame.transform.scale(frog_img, (FROG_SIZE, FROG_SIZE))
         for file in os.listdir():
             if file.startswith("car") and file.endswith(".png"):
@@ -38,19 +38,19 @@ def load_images():
                 new_height = int(img_height * scale)
                 img = pygame.transform.scale(img, (new_width, new_height))
                 car_images.append(img)
-        road_img = pygame.image.load("road.png").convert_alpha()
+        road_img = pygame.image.load("road3.png").convert_alpha()
         road_img = pygame.transform.scale(road_img, (SCREEN_WIDTH, SCREEN_HEIGHT))
     except pygame.error as e:
         print(f"Error loading images: {e}")
         print("Please ensure frog.png, car*.png, and road.png are in the same folder as this script.")
         pygame.quit()
         sys.exit()
-    
+
     if not car_images:
         print("No car images found. Ensure files are named car1.png, car2.png, etc.")
         pygame.quit()
         sys.exit()
-    
+
     return frog_img, car_images, road_img
 
 frog_image, car_images, road_image = load_images()
@@ -145,7 +145,7 @@ def draw_menu(selected_difficulty):
     font = pygame.font.SysFont(None, 55)
     title = font.render("Frogger Clone", True, WHITE)
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 100))
-    
+
     difficulties = ["easy", "medium", "hard"]
     buttons = []
     for i, diff in enumerate(difficulties):
@@ -154,22 +154,21 @@ def draw_menu(selected_difficulty):
         rect = text.get_rect(center=(SCREEN_WIDTH // 2, 250 + i * 100))
         buttons.append((rect, diff))
         screen.blit(text, rect)
-    
+
     start_text = font.render("Press ENTER to Start", True, WHITE)
     screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, 500))
     return buttons
 
-# --- NEW: Pause menu function ---
+# Pause menu
 def draw_pause_menu(selected_option):
-    # Semi-transparent overlay
     overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 128))
     screen.blit(overlay, (0, 0))
-    
+
     font = pygame.font.SysFont(None, 55)
     title = font.render("Paused", True, WHITE)
     screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 150))
-    
+
     options = ["Resume", "Exit"]
     buttons = []
     for i, option in enumerate(options):
@@ -178,7 +177,7 @@ def draw_pause_menu(selected_option):
         rect = text.get_rect(center=(SCREEN_WIDTH // 2, 300 + i * 100))
         buttons.append((rect, option))
         screen.blit(text, rect)
-    
+
     return buttons
 
 # Game state
@@ -188,7 +187,6 @@ frog = None
 cars = []
 game_over = False
 won = False
-# --- NEW: Pause state variables ---
 paused = False
 selected_pause_option = "Resume"
 
@@ -213,10 +211,9 @@ while running:
                     frog, cars = initialize_game(selected_difficulty)
                     game_over = False
                     won = False
-                    paused = False  # Reset pause state
+                    paused = False
             elif state == "game":
                 if paused:
-                    # --- NEW: Handle pause menu inputs ---
                     if event.key == pygame.K_UP:
                         options = ["Resume", "Exit"]
                         idx = options.index(selected_pause_option)
@@ -232,9 +229,8 @@ while running:
                             state = "menu"
                             paused = False
                     elif event.key == pygame.K_ESCAPE:
-                        paused = False  # Unpause if ESC is pressed again
+                        paused = False
                 else:
-                    # --- MODIFIED: Handle ESC to pause ---
                     if event.key == pygame.K_ESCAPE and not game_over and not won:
                         paused = True
                         selected_pause_option = "Resume"
@@ -260,7 +256,6 @@ while running:
         clock.tick(60)
         continue
 
-    # --- NEW: Handle paused state ---
     if paused:
         screen.blit(road_image, (0, 0))
         for car in cars:
@@ -281,21 +276,36 @@ while running:
         if frog.y == 0:
             won = True
 
-    # Draw game
     screen.blit(road_image, (0, 0))
     for car in cars:
         car.draw()
     frog.draw()
+
+    # Animated game over / win messages
+    font_sub = pygame.font.SysFont(None, 40)
+    pulse = 5 * abs((pygame.time.get_ticks() // 100 % 10) - 5)
+
     if game_over:
-        font = pygame.font.SysFont(None, 55)
-        text = font.render("Game Over! R to Restart, ESC to Menu", True, WHITE)
-        text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-        screen.blit(text, text_rect)
+        game_over_font = pygame.font.SysFont(None, 80 + pulse)
+        game_over_text = game_over_font.render("Game Over!", True, (255, 0, 0))
+        restart_text = font_sub.render("Press R to Restart, ESC to return to Menu", True, WHITE)
+
+        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40))
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+
+        screen.blit(game_over_text, game_over_rect)
+        screen.blit(restart_text, restart_rect)
+
     elif won:
-        font = pygame.font.SysFont(None, 55)
-        text = font.render("You Win! R to Restart, ESC to Menu", True, WHITE)
-        text_rect = text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-        screen.blit(text, text_rect)
+        win_font = pygame.font.SysFont(None, 80 + pulse)
+        win_text = win_font.render("You Win!", True, (0, 255, 0))
+        restart_text = font_sub.render("Press R to Restart, ESC to return to Menu", True, WHITE)
+
+        win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40))
+        restart_rect = restart_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 20))
+
+        screen.blit(win_text, win_rect)
+        screen.blit(restart_text, restart_rect)
 
     pygame.display.flip()
     clock.tick(60)
