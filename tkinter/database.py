@@ -6,10 +6,27 @@ class Database:
             host="127.0.0.1",
             port="3307",
             user="root",
-            password="",
-            database="expenses_db"
+            password=""
         )
         self.cursor = self.conn.cursor()
+        self.create_database()
+        self.conn.database = "expenses_db"
+        self.create_table()
+
+    def create_database(self):
+        self.cursor.execute("CREATE DATABASE IF NOT EXISTS expenses_db")
+        print("Database 'expenses_db' is ready.")
+
+    def create_table(self):
+        self.cursor.execute("""
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            label VARCHAR(255) NOT NULL,
+            amount DECIMAL(10, 2) NOT NULL,
+            date DATE NOT NULL
+        )
+        """)
+        print("Table 'expenses' is ready.")
 
     def add_expense(self, label, amount, date):
         query = "INSERT INTO expenses (label, amount, date) VALUES (%s, %s, %s)"
