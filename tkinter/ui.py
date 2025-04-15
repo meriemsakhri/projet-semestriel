@@ -1,5 +1,5 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+import customtkinter as ctk
+from tkinter import messagebox, filedialog
 from datetime import datetime
 import csv
 from validation import validate_fields
@@ -9,215 +9,280 @@ from database import Database
 class ExpenseApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Gestion des Dépenses")
-        self.root.geometry("800x600")
+        self.root.title("Smart Expense Manager")
+        self.root.geometry("1200x800")
         self.root.resizable(True, True)
 
-        self.bg_color = "#f0f4f8"
-        self.accent_color = "#4a90e2"
-        self.secondary_color = "#50c878"
-        self.text_color = "#2d3436"
-        self.error_color = "#d63031"
-        self.green_color = "#27ae60"
-        self.yellow_color = "#f1c40f"
-        self.red_color = "#e74c3c"
+        # Set appearance and theme
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
 
-        self.root.configure(bg=self.bg_color)
+        # Modern color scheme
+        self.primary_color = "#1e293b"    # Dark slate blue
+        self.secondary_color = "#334155"   # Lighter slate blue
+        self.accent_color = "#3b82f6"      # Bright blue
+        self.success_color = "#10b981"     # Emerald
+        self.warning_color = "#f59e0b"     # Amber
+        self.danger_color = "#ef4444"      # Red
+        self.text_color = "#f1f5f9"        # Slate gray
+        self.muted_text = "#94a3b8"        # Muted text
+        self.border_color = "#475569"      # Border color
 
-        self.label_var = tk.StringVar()
-        self.amount_var = tk.StringVar()
-        self.date_var = tk.StringVar(value=datetime.today().strftime("%Y-%m-%d"))
+        # Variables
+        self.label_var = ctk.StringVar()
+        self.amount_var = ctk.StringVar()
+        self.date_var = ctk.StringVar(value=datetime.today().strftime("%Y-%m-%d"))
+        self.search_var = ctk.StringVar()
+        self.search_var.trace('w', self.on_search)
 
+        # Database
         self.db = Database()
+        self.selected_id = None
 
+        # Setup UI
         self.setup_ui()
         self.fetch_expenses()
 
     def setup_ui(self):
-        self.root.grid_rowconfigure(1, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
+        self.root.configure(fg_color=self.primary_color)
+        
+        # Create main container
+        self.main_container = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True, padx=20, pady=20)
 
-        style = ttk.Style()
-        style.theme_use("clam")
+        # Create sidebar
+        self.setup_sidebar()
+        
+        # Create content area
+        self.setup_content_area()
 
-        style.configure(
-            "Green.TButton",
-            padding=8,
-            font=("Segoe UI", 10, "bold"),
-            background=self.green_color,
-            foreground="white",
-            bordercolor=self.green_color,
+    def setup_sidebar(self):
+        sidebar = ctk.CTkFrame(
+            self.main_container,
+            fg_color=self.secondary_color,
+            corner_radius=15,
+            width=300
         )
-        style.map("Green.TButton", background=[("active", "#219150")])
+        sidebar.pack(side="left", fill="y", padx=(0, 20))
 
-        style.configure(
-            "Yellow.TButton",
-            padding=8,
-            font=("Segoe UI", 10, "bold"),
-            background=self.yellow_color,
-            foreground="black",
-            bordercolor=self.yellow_color,
-        )
-        style.map("Yellow.TButton", background=[("active", "#d4ac0d")])
+        # App title
+        title_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        title_frame.pack(fill="x", padx=20, pady=30)
+        
+        ctk.CTkLabel(
+            title_frame,
+            text="Smart Expense",
+            font=("Roboto", 24, "bold"),
+            text_color=self.accent_color
+        ).pack()
+        
+        ctk.CTkLabel(
+            title_frame,
+            text="Manager",
+            font=("Roboto", 16),
+            text_color=self.muted_text
+        ).pack()
 
-        style.configure(
-            "Red.TButton",
-            padding=8,
-            font=("Segoe UI", 10, "bold"),
-            background=self.red_color,
-            foreground="white",
-            bordercolor=self.red_color,
-        )
-        style.map("Red.TButton", background=[("active", "#c0392b")])
+        # Form
+        form_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        form_frame.pack(fill="x", padx=20, pady=20)
 
-        style.configure(
-            "Neutral.TButton",
-            padding=8,
-            font=("Segoe UI", 10, "bold"),
-            background="#95a5a6",
-            foreground="white",
-            bordercolor="#95a5a6",
-        )
-        style.map("Neutral.TButton", background=[("active", "#7f8c8d")])
+        # Input fields
+        fields = [
+            ("Étiquette", self.label_var),
+            ("Montant (TND)", self.amount_var),
+            ("Date", self.date_var)
+        ]
 
-        style.configure(
-            "TButton",
-            padding=8,
-            font=("Segoe UI", 10, "bold"),
-            background=self.accent_color,
-            foreground="white",
-            bordercolor=self.accent_color,
-        )
-        style.map("TButton", background=[("active", "#3b7ed0")])
-        style.configure(
-            "TLabel",
-            font=("Segoe UI", 10),
-            background=self.bg_color,
-            foreground=self.text_color,
-        )
-        style.configure(
-            "Treeview.Heading",
-            font=("Segoe UI", 10, "bold"),
-            background=self.accent_color,
-            foreground="white",
-        )
-        style.configure(
-            "Treeview",
-            font=("Segoe UI", 10),
-            background="white",
-            foreground=self.text_color,
-            rowheight=25,
-            fieldbackground="white",
-        )
-        style.map("Treeview", background=[("selected", self.secondary_color)])
+        for label, var in fields:
+            field_frame = ctk.CTkFrame(form_frame, fg_color="transparent")
+            field_frame.pack(fill="x", pady=10)
+            
+            ctk.CTkLabel(
+                field_frame,
+                text=label,
+                font=("Roboto", 12),
+                text_color=self.muted_text
+            ).pack(anchor="w")
+            
+            ctk.CTkEntry(
+                field_frame,
+                textvariable=var,
+                height=40,
+                fg_color=self.primary_color,
+                border_color=self.border_color,
+                text_color=self.text_color,
+                placeholder_text=f"Entrer {label.lower()}...",
+                font=("Roboto", 13),
+                corner_radius=8
+            ).pack(fill="x", pady=(5, 0))
 
-        form_frame = ttk.LabelFrame(
-            self.root,
-            text="Nouvelle Dépense",
-            padding=(20, 10),
-            style="Custom.TLabelframe",
-        )
-        style.configure(
-            "Custom.TLabelframe", background=self.bg_color, foreground=self.text_color
-        )
-        style.configure(
-            "Custom.TLabelframe.Label",
-            font=("Segoe UI", 12, "bold"),
-            foreground=self.text_color,
-        )
-        form_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        # Buttons
+        button_frame = ctk.CTkFrame(sidebar, fg_color="transparent")
+        button_frame.pack(fill="x", padx=20, pady=20)
 
-        form_frame.grid_columnconfigure(1, weight=1)
+        buttons = [
+            ("Ajouter", self.success_color, self.add_expense),
+            ("Modifier", self.warning_color, self.update_expense),
+            ("Supprimer", self.danger_color, self.delete_expense),
+            ("Effacer", self.secondary_color, self.clear_fields)
+        ]
 
-        ttk.Label(form_frame, text="Étiquette:").grid(
-            row=0, column=0, sticky="w", pady=5, padx=10
+        for text, color, command in buttons:
+            ctk.CTkButton(
+                button_frame,
+                text=text,
+                font=("Roboto", 13, "bold"),
+                fg_color=color,
+                hover_color=self.accent_color,
+                height=40,
+                corner_radius=8,
+                command=command
+            ).pack(fill="x", pady=5)
+
+    def setup_content_area(self):
+        content = ctk.CTkFrame(
+            self.main_container,
+            fg_color=self.secondary_color,
+            corner_radius=15
         )
-        ttk.Entry(form_frame, textvariable=self.label_var, width=30).grid(
-            row=0, column=1, pady=5, padx=10, sticky="ew"
+        content.pack(side="left", fill="both", expand=True)
+
+        # Header with search and export
+        header = ctk.CTkFrame(content, fg_color="transparent", height=80)
+        header.pack(fill="x", padx=20, pady=20)
+        header.pack_propagate(False)
+
+        # Search box
+        search_frame = ctk.CTkFrame(header, fg_color="transparent")
+        search_frame.pack(side="left", fill="both", expand=True)
+        
+        ctk.CTkEntry(
+            search_frame,
+            textvariable=self.search_var,
+            placeholder_text="Rechercher des dépenses...",
+            font=("Roboto", 13),
+            height=45,
+            fg_color=self.primary_color,
+            border_color=self.border_color,
+            corner_radius=8
+        ).pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        # Export button
+        ctk.CTkButton(
+            header,
+            text="Exporter CSV",
+            font=("Roboto", 13, "bold"),
+            fg_color=self.accent_color,
+            hover_color=self.success_color,
+            width=130,
+            height=45,
+            corner_radius=8,
+            command=self.export_to_csv
+        ).pack(side="right")
+
+        # Table
+        self.setup_table(content)
+
+        # Footer with total
+        footer = ctk.CTkFrame(content, fg_color=self.primary_color, height=60, corner_radius=10)
+        footer.pack(fill="x", padx=20, pady=20)
+        footer.pack_propagate(False)
+
+        self.total_label = ctk.CTkLabel(
+            footer,
+            text="Total: 0.00 TND",
+            font=("Roboto", 16, "bold"),
+            text_color=self.accent_color
         )
+        self.total_label.pack(side="right", padx=20, pady=10)
 
-        ttk.Label(form_frame, text="Montant (TND):").grid(
-            row=1, column=0, sticky="w", pady=5, padx=10
+    def setup_table(self, parent):
+        # Table container
+        table_container = ctk.CTkFrame(parent, fg_color=self.primary_color, corner_radius=10)
+        table_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # Headers
+        headers = ["ID", "Étiquette", "Montant (TND)", "Date"]
+        header_frame = ctk.CTkFrame(table_container, fg_color="transparent")
+        header_frame.pack(fill="x", padx=15, pady=15)
+        
+        for idx, header in enumerate(headers):
+            weight = 3 if idx == 1 else 1
+            header_frame.grid_columnconfigure(idx, weight=weight)
+            ctk.CTkLabel(
+                header_frame,
+                text=header,
+                font=("Roboto", 13, "bold"),
+                text_color=self.muted_text
+            ).grid(row=0, column=idx, sticky="w")
+
+        # Scrollable frame for expenses
+        self.scrollable_table = ctk.CTkScrollableFrame(
+            table_container,
+            fg_color="transparent"
         )
-        ttk.Entry(form_frame, textvariable=self.amount_var, width=30).grid(
-            row=1, column=1, pady=5, padx=10, sticky="ew"
-        )
+        self.scrollable_table.pack(fill="both", expand=True, padx=5, pady=(0, 10))
 
-        ttk.Label(form_frame, text="Date (YYYY-MM-DD):").grid(
-            row=2, column=0, sticky="w", pady=5, padx=10
-        )
-        ttk.Entry(form_frame, textvariable=self.date_var, width=30).grid(
-            row=2, column=1, pady=5, padx=10, sticky="ew"
-        )
+        for i in range(4):
+            weight = 3 if i == 1 else 1
+            self.scrollable_table.grid_columnconfigure(i, weight=weight)
 
-        btn_frame = ttk.Frame(form_frame, style="Custom.TFrame")
-        style.configure("Custom.TFrame", background=self.bg_color)
-        btn_frame.grid(row=0, column=2, rowspan=3, padx=15, sticky="n")
+    def on_search(self, *args):
+        self.fetch_expenses()
 
-        ttk.Button(
-            btn_frame, text="Ajouter", style="Green.TButton", command=self.add_expense
-        ).grid(row=0, column=0, pady=5, sticky="ew")
-        ttk.Button(
-            btn_frame,
-            text="Modifier",
-            style="Yellow.TButton",
-            command=self.update_expense,
-        ).grid(row=1, column=0, pady=5, sticky="ew")
-        ttk.Button(
-            btn_frame,
-            text="Supprimer",
-            style="Red.TButton",
-            command=self.delete_expense,
-        ).grid(row=2, column=0, pady=5, sticky="ew")
-        ttk.Button(
-            btn_frame,
-            text="Effacer",
-            style="Neutral.TButton",
-            command=self.clear_fields,
-        ).grid(row=3, column=0, pady=5, sticky="ew")
+    def fetch_expenses(self):
+        # Clear existing table
+        for widget in self.scrollable_table.winfo_children():
+            widget.destroy()
 
-        self.tree = ttk.Treeview(
-            self.root, columns=("id", "label", "amount", "date"), show="headings"
-        )
-        for col, label in zip(
-            ("id", "label", "amount", "date"),
-            ("ID", "Étiquette", "Montant (TND)", "Date"),
-        ):
-            self.tree.heading(col, text=label)
-            self.tree.column(col, anchor="center", width=150 if col != "id" else 80)
-        self.tree.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        # Fetch and filter expenses
+        expenses = self.db.get_all_expenses()
+        search_term = self.search_var.get().lower()
+        filtered_expenses = [
+            exp for exp in expenses
+            if search_term in str(exp[0]).lower() or
+            search_term in exp[1].lower() or
+            search_term in str(exp[2]).lower() or
+            search_term in str(exp[3]).lower()
+        ]
 
-        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.tree.yview)
-        scrollbar.grid(row=1, column=1, sticky="ns")
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        # Populate table
+        for row_idx, expense in enumerate(filtered_expenses):
+            expense_id, label, amount, date = expense
+            row_data = [str(expense_id), label, f"{amount:.2f}", date]
+            
+            row_frame = ctk.CTkFrame(
+                self.scrollable_table,
+                fg_color=self.secondary_color if row_idx % 2 == 0 else "transparent",
+                corner_radius=6
+            )
+            row_frame.grid(row=row_idx, column=0, columnspan=4, sticky="ew", pady=2)
+            row_frame.bind("<Button-1>", lambda e, id=expense_id: self.on_row_select(id))
 
-        self.tree.bind("<<TreeviewSelect>>", self.on_row_select)
+            for col_idx, value in enumerate(row_data):
+                weight = 3 if col_idx == 1 else 1
+                row_frame.grid_columnconfigure(col_idx, weight=weight)
+                ctk.CTkLabel(
+                    row_frame,
+                    text=value,
+                    font=("Roboto", 13),
+                    text_color=self.text_color,
+                    anchor="w",
+                    padx=15,
+                    pady=12
+                ).grid(row=0, column=col_idx, sticky="w")
 
-        bottom_frame = ttk.Frame(self.root, style="Custom.TFrame")
-        bottom_frame.grid(row=2, column=0, pady=10, padx=10, sticky="ew")
-        bottom_frame.grid_columnconfigure(0, weight=1)
-
-        self.total_label = ttk.Label(
-            bottom_frame,
-            text="Total : 0.00 TND",
-            font=("Segoe UI", 12, "bold"),
-            foreground=self.secondary_color,
-            background=self.bg_color,
-        )
-        self.total_label.pack(side="left", padx=10)
-
-        ttk.Button(bottom_frame, text="Exporter CSV", command=self.export_to_csv).pack(
-            side="right", padx=10
-        )
+        # Update total
+        total = self.db.get_total()
+        self.total_label.configure(text=f"Total: {total:.2f} TND")
 
     def add_expense(self):
         errors = validate_fields(
             self.label_var.get(), self.amount_var.get(), self.date_var.get()
         )
         if errors:
-            messagebox.showerror(
-                "Erreur de validation", "\n".join(errors), icon="error"
-            )
+            messagebox.showerror("Erreur", "\n".join(errors))
             return
         self.db.add_expense(
             self.label_var.get(), float(self.amount_var.get()), self.date_var.get()
@@ -225,31 +290,18 @@ class ExpenseApp:
         self.clear_fields()
         self.fetch_expenses()
 
-    def fetch_expenses(self):
-        self.tree.delete(*self.tree.get_children())
-        total = self.db.get_total()
-        for row in self.db.get_all_expenses():
-            self.tree.insert("", tk.END, values=row)
-        self.total_label.config(text=f"Total : {total:.2f} TND")
-
     def update_expense(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo(
-                "Sélection requise", "Veuillez sélectionner une ligne.", icon="info"
-            )
+        if not self.selected_id:
+            messagebox.showinfo("Sélection", "Veuillez sélectionner une dépense.")
             return
         errors = validate_fields(
             self.label_var.get(), self.amount_var.get(), self.date_var.get()
         )
         if errors:
-            messagebox.showerror(
-                "Erreur de validation", "\n".join(errors), icon="error"
-            )
+            messagebox.showerror("Erreur", "\n".join(errors))
             return
-        expense_id = self.tree.item(selected)["values"][0]
         self.db.update_expense(
-            expense_id,
+            self.selected_id,
             self.label_var.get(),
             float(self.amount_var.get()),
             self.date_var.get(),
@@ -258,44 +310,45 @@ class ExpenseApp:
         self.fetch_expenses()
 
     def delete_expense(self):
-        selected = self.tree.selection()
-        if not selected:
-            messagebox.showinfo(
-                "Sélection requise", "Veuillez sélectionner une ligne.", icon="info"
-            )
+        if not self.selected_id:
+            messagebox.showinfo("Sélection", "Veuillez sélectionner une dépense.")
             return
-        if messagebox.askyesno(
-            "Confirmation", "Voulez-vous vraiment supprimer cette dépense ?"
-        ):
-            expense_id = self.tree.item(selected)["values"][0]
-            self.db.delete_expense(expense_id)
+        if messagebox.askyesno("Confirmation", "Supprimer cette dépense ?"):
+            self.db.delete_expense(self.selected_id)
             self.clear_fields()
             self.fetch_expenses()
 
-    def on_row_select(self, event):
-        selected = self.tree.selection()
-        if selected:
-            row = self.tree.item(selected)["values"]
-            self.label_var.set(row[1])
-            self.amount_var.set(str(row[2]))
-            self.date_var.set(row[3])
+    def on_row_select(self, expense_id):
+        self.selected_id = expense_id
+        for expense in self.db.get_all_expenses():
+            if expense[0] == expense_id:
+                self.label_var.set(expense[1])
+                self.amount_var.set(str(expense[2]))
+                self.date_var.set(expense[3])
+                break
 
     def clear_fields(self):
         self.label_var.set("")
         self.amount_var.set("")
         self.date_var.set(datetime.today().strftime("%Y-%m-%d"))
+        self.selected_id = None
 
     def export_to_csv(self):
         file_path = filedialog.asksaveasfilename(
-            defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")]
+            defaultextension=".csv",
+            filetypes=[("Fichiers CSV", "*.csv")]
         )
         if not file_path:
             return
         with open(file_path, mode="w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerow(["ID", "Étiquette", "Montant (TND)", "Date"])
-            for row_id in self.tree.get_children():
-                writer.writerow(self.tree.item(row_id)["values"])
-        messagebox.showinfo(
-            "Exportation", "Les dépenses ont été exportées avec succès.", icon="info"
-        )
+            for expense in self.db.get_all_expenses():
+                writer.writerow(expense)
+        messagebox.showinfo("Succès", "Exportation réussie.")
+
+
+if __name__ == "__main__":
+    root = ctk.CTk()
+    app = ExpenseApp(root)
+    root.mainloop()
